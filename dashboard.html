@@ -13,7 +13,10 @@
   <div class="max-w-6xl mx-auto p-8">
     <div class="flex justify-between items-center mb-10">
       <h1 class="text-4xl font-bold">Dashboard</h1>
-      <button onclick="logout()" class="bg-red-600 text-white px-6 py-3 rounded-2xl">Logout</button>
+      <button onclick="logout()" 
+              class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-2xl font-medium">
+        Logout
+      </button>
     </div>
 
     <div class="grid md:grid-cols-2 gap-8">
@@ -27,8 +30,19 @@
   </div>
 
   <script>
-    auth.onAuthStateChanged(user => { if(!user) location='login.html'; });
-    function logout(){ auth.signOut().then(()=>location='login.html'); }
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = 'login.html';
+      }
+    });
+
+    function logout() {
+      auth.signOut().then(() => {
+        window.location.href = 'login.html';
+      }).catch(() => {
+        alert("Logout failed. Please try again.");
+      });
+    }
   </script>
 </body>
 </html>
