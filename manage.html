@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Jobs - Sree Sastha Computers</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-slate-50 min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-4xl font-bold text-slate-800">Manage Jobs</h1>
+      <div class="flex gap-4">
+        <button onclick="exportToExcel()" 
+                class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2">
+          <i class="fa-solid fa-file-excel"></i> Export to Excel
+        </button>
+        <button onclick="logout()" 
+                class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl">Logout</button>
+      </div>
+    </div>
+
+    <input id="searchInput" type="text" placeholder="Search by Job No, Customer Name or Phone..." 
+           class="w-full p-5 rounded-2xl border border-slate-300 focus:border-blue-500 text-lg mb-8"
+           onkeyup="filterJobs()">
+
+    <div class="bg-white rounded-3xl shadow overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-slate-800 text-white">
+          <tr>
+            <th class="text-left p-5">Job No</th>
+            <th class="text-left p-5">Customer</th>
+            <th class="text-left p-5">Phone</th>
+            <th class="text-left p-5">Product</th>
+            <th class="text-left p-5">Status</th>
+            <th class="text-center p-5">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobsTable" class="divide-y"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div class="bg-white w-full max-w-3xl mx-4 rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-3xl font-bold mb-6">Edit Job <span id="modalJobNo" class="font-mono text-blue-600"></span></h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div><label>Job Date</label><input id="editDate" type="date" class="w-full p-4 border rounded-2xl"></div>
+        <div><label>Customer Name</label><input id="editName" class="w-full p-4 border rounded-2xl"></div>
+        <div><label>Customer Phone (91)</label><input id="editPhone" class="w-full p-4 border rounded-2xl"></div>
+        <div><label>Product Type</label>
+          <select id="editProduct" class="w-full p-4 border rounded-2xl">
+            <option>Laptop</option><option>Desktop PC</option><option>Printer</option><option>All in One</option><option>Other</option>
+          </select>
+        </div>
+        <div><label>Estimate Completion Date</label><input id="editDelivery" type="date" class="w-full p-4 border rounded-2xl"></div>
+        <div><label>Estimate Amount ₹</label><input id="editEstimate" type="number" class="w-full p-4 border rounded-2xl"></div>
+      </div>
+
+      <div class="mt-6">
+        <label>Complaint / Service Required</label>
+        <textarea id="editComplaint" rows="3" class="w-full p-4 border rounded-2xl"></textarea>
+      </div>
+
+      <div class="mt-6">
+        <label>Status</label>
+        <select id="editStatus" onchange="toggleCompletionField()" class="w-full p-4 border rounded-2xl">
+          <option value="Order Taken">Order Taken</option>
+          <option value="In Service">In Service</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+
+      <!-- Actual Completion Date (only shows when status is Completed) -->
+      <div id="actualCompletionField" class="hidden mt-6">
+        <label>Actual Completion Date</label>
+        <input id="editActualCompletion" type="date" class="w-full p-4 border rounded-2xl">
+      </div>
+
+      <div class="mt-6">
+        <label>Completion Note</label>
+        <textarea id="editNote" rows="4" placeholder="Final remarks, repair details, or notes for customer..." 
+                  class="w-full p-4 border rounded-2xl"></textarea>
+      </div>
+
+      <div class="flex gap-4 mt-10">
+        <button onclick="updateJob()" 
+                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-3xl font-semibold text-lg">
+          Save Changes & Send WhatsApp
+        </button>
+        <button onclick="closeModal()" 
+                class="flex-1 bg-slate-300 hover:bg-slate-400 py-4 rounded-3xl font-semibold text-lg">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentEditId = null;
+    let allJobs = [];
+
+    async function loadJobs() {
+      const snap = await db.collection('jobs').orderBy('num', 'desc').get();
+      allJobs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      renderJobs(allJobs);
+    }
+
+    function renderJobs(jobs) {
+      const tbody = document.getElementById('jobsTable');
+      tbody.innerHTML = '';
+
+      jobs.forEach(job => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-5 font-mono">${job.jobNo}</td>
+          <td class="p-5">${job.name}</td>
+          <td class="p-5">${job.phone}</td>
+          <td class="p-5">${job.product || '-'}</td>
+          <td class="p-5">
+            <span class="px-4 py-1 rounded-full text-sm font-medium ${job.status === 'Completed' ? 'bg-green-100 text-green-700' : job.status === 'In Service' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
+              ${job.status}
+            </span>
+          </td>
+          <td class="p-5 text-center">
+            <button onclick="editJob('${job.id}')" class="px-6 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700">Edit</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterJobs() {
+      const term = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = allJobs.filter(j => 
+        (j.jobNo && j.jobNo.toLowerCase().includes(term)) ||
+        (j.name && j.name.toLowerCase().includes(term)) ||
+        (j.phone && j.phone.includes(term))
+      );
+      renderJobs(filtered);
+    }
+
+    async function editJob(id) {
+      currentEditId = id;
+      const doc = await db.collection('jobs').doc(id).get();
+      const j = doc.data();
+
+      document.getElementById('modalJobNo').textContent = j.jobNo;
+      document.getElementById('editDate').value = j.date || '';
+      document.getElementById('editName').value = j.name || '';
+      document.getElementById('editPhone').value = j.phone || '';
+      document.getElementById('editProduct').value = j.product || '';
+      document.getElementById('editDelivery').value = j.delivery || '';
+      document.getElementById('editEstimate').value = j.estimate || '';
+      document.getElementById('editComplaint').value = j.complaint || '';
+      document.getElementById('editStatus').value = j.status || 'Order Taken';
+      document.getElementById('editNote').value = j.completionNote || '';
+      document.getElementById('editActualCompletion').value = j.actualCompletion || '';
+
+      toggleCompletionField();
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function toggleCompletionField() {
+      const status = document.getElementById('editStatus').value;
+      document.getElementById('actualCompletionField').classList.toggle('hidden', status !== 'Completed');
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    async function updateJob() {
+      if (!currentEditId) return;
+
+      await db.collection('jobs').doc(currentEditId).update({
+        date: document.getElementById('editDate').value,
+        name: document.getElementById('editName').value,
+        phone: document.getElementById('editPhone').value,
+        product: document.getElementById('editProduct').value,
+        delivery: document.getElementById('editDelivery').value,
+        estimate: document.getElementById('editEstimate').value ? Number(document.getElementById('editEstimate').value) : 0,
+        complaint: document.getElementById('editComplaint').value,
+        status: document.getElementById('editStatus').value,
+        completionNote: document.getElementById('editNote').value,
+        actualCompletion: document.getElementById('editActualCompletion').value,
+        updatedAt: new Date().toISOString()
+      });
+
+      alert("Job updated successfully!");
+
+      if (confirm("Send WhatsApp update to customer?")) {
+        const phone = document.getElementById('editPhone').value;
+        const status = document.getElementById('editStatus').value;
+        const note = document.getElementById('editNote').value;
+        const msg = `Job Update:\nStatus: ${status}\n${note ? 'Note: ' + note : ''}`;
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+      }
+
+      closeModal();
+      loadJobs();
+    }
+
+    async function exportToExcel() {
+      const snap = await db.collection('jobs').orderBy('num', 'desc').get();
+      let csv = "JobNo,Date,Customer,Phone,Product,Status,Estimate,Delivery,Complaint,CompletionNote\n";
+      snap.forEach(doc => {
+        const j = doc.data();
+        csv += `"${j.jobNo}","${j.date||''}","${j.name||''}","${j.phone||''}","${j.product||''}","${j.status||''}",${j.estimate||0},"${j.delivery||''}","${(j.complaint||'').replace(/"/g,'""')}","${(j.completionNote||'').replace(/"/g,'""')}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `SreeSastha_Jobs_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    function logout() {
+      auth.signOut().then(() => location = 'login.html');
+    }
+
+    // Load jobs when page opens
+    loadJobs();
+  </script>
+</body>
+</html>

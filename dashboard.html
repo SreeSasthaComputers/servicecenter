@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Sree Sastha Computers</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-auth-compat.js"></script>
+  <script src="firebase.js"></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+  <div class="max-w-6xl mx-auto p-8">
+    <div class="flex justify-between items-center mb-10">
+      <h1 class="text-4xl font-bold">Dashboard</h1>
+      <button onclick="logout()" class="bg-red-600 text-white px-6 py-3 rounded-2xl">Logout</button>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-8">
+      <a href="create.html" class="bg-white p-12 rounded-3xl shadow hover:shadow-2xl transition text-center">
+        <h2 class="text-3xl font-semibold">Create New Job</h2>
+      </a>
+      <a href="manage.html" class="bg-white p-12 rounded-3xl shadow hover:shadow-2xl transition text-center">
+        <h2 class="text-3xl font-semibold">Manage Jobs</h2>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    auth.onAuthStateChanged(user => { if(!user) location='login.html'; });
+    function logout(){ auth.signOut().then(()=>location='login.html'); }
+  </script>
+</body>
+</html>

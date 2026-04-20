@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Service - Sree Sastha Computers</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center">
+  <div class="max-w-lg w-full mx-4 bg-white rounded-3xl shadow-2xl p-10">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-slate-800">Track Your Service</h1>
+      <p class="text-slate-600 mt-2">Enter your Job Number below</p>
+    </div>
+
+    <input id="jobNo" 
+           placeholder="Enter Job Number (e.g. SS-0001)" 
+           class="w-full p-5 border border-slate-300 rounded-2xl text-lg focus:border-blue-500 outline-none mb-6">
+
+    <button onclick="checkStatus()" 
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-3xl font-semibold text-xl">
+      Check Status
+    </button>
+
+    <div id="result" class="mt-8"></div>
+  </div>
+
+  <script>
+    async function checkStatus() {
+      const jobNo = document.getElementById('jobNo').value.trim().toUpperCase();
+      const resultDiv = document.getElementById('result');
+
+      if (!jobNo) {
+        resultDiv.innerHTML = `<p class="text-red-600 text-center">Please enter a Job Number</p>`;
+        return;
+      }
+
+      resultDiv.innerHTML = `<p class="text-center py-8">Searching...</p>`;
+
+      try {
+        const snap = await db.collection('jobs').where('jobNo', '==', jobNo).get();
+
+        if (snap.empty) {
+          resultDiv.innerHTML = `
+            <div class="bg-red-50 p-8 rounded-2xl text-center">
+              <p class="text-red-600 text-xl">No job found with this number.</p>
+            </div>`;
+          return;
+        }
+
+        const j = snap.docs[0].data();
+
+        resultDiv.innerHTML = `
+          <div class="bg-white border border-slate-200 rounded-3xl p-8 shadow">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="font-mono text-3xl font-bold">${j.jobNo}</h2>
+              <span class="px-5 py-2 rounded-full text-sm font-semibold
+                ${j.status === 'Completed' ? 'bg-green-100 text-green-700' : 
+                  j.status === 'In Service' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
+                ${j.status}
+              </span>
+            </div>
+            
+            <p><strong>Customer:</strong> ${j.name}</p>
+            <p><strong>Product:</strong> ${j.product || '-'}</p>
+            <p><strong>Complaint:</strong> ${j.complaint || '-'}</p>
+            
+            ${j.estimate ? `<p><strong>Estimate Amount:</strong> ₹${j.estimate}</p>` : ''}
+            ${j.delivery ? `<p><strong>Expected Completion:</strong> ${j.delivery}</p>` : ''}
+            
+            ${j.completionNote ? `
+              <div class="mt-6 pt-6 border-t">
+                <p class="font-medium text-slate-700">Completion Note:</p>
+                <p class="mt-2">${j.completionNote}</p>
+              </div>` : ''}
+            
+            <button onclick="openWhatsApp()" 
+                    class="mt-8 w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-3xl font-semibold flex items-center justify-center gap-2">
+              <i class="fa-brands fa-whatsapp text-2xl"></i> Chat on WhatsApp
+            </button>
+          </div>
+        `;
+      } catch (e) {
+        resultDiv.innerHTML = `<p class="text-red-600 text-center">Error loading job. Please try again.</p>`;
+      }
+    }
+
+    function openWhatsApp() {
+      window.open('https://wa.me/917907502401', '_blank');
+    }
+  </script>
+</body>
+</html>
